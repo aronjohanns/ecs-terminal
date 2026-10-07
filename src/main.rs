@@ -56,7 +56,7 @@ fn parse_args() -> Args {
             "-h" | "--help" => {
                 let path = config::Config::default_path().map(|p| p.display().to_string()).unwrap_or_default();
                 println!(
-                    "ecs-terminal [--profile NAME] [--region REGION] [--config PATH] [--dump-config]\n\n\
+                    "ecsterm [--profile NAME] [--region REGION] [--config PATH] [--dump-config]\n\n\
                      Browse ECS clusters > services > containers > tasks and run the matching AWS CLI commands.\n\n\
                      Options:\n  \
                      -p, --profile NAME   AWS profile to open (skips the picker)\n  \
@@ -140,7 +140,7 @@ fn run_in_terminal(cmd: &str) -> Result<std::process::ExitStatus> {
         child.stdin(Stdio::from(i)).stdout(Stdio::from(o)).stderr(Stdio::from(e));
     }
     let status = child.status()?;
-    print!("\n\x1b[2m[exit {}] Press Enter to return to ecs-terminal…\x1b[0m ", status.code().unwrap_or(-1));
+    print!("\n\x1b[2m[exit {}] Press Enter to return to ecsterm…\x1b[0m ", status.code().unwrap_or(-1));
     std::io::stdout().flush()?;
     let mut line = String::new();
     std::io::stdin().lock().read_line(&mut line)?;

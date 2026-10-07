@@ -254,7 +254,7 @@ mod tests {
 
     #[test]
     fn parses_config_and_credentials() {
-        let dir = std::env::temp_dir().join(format!("ecs-terminal-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("ecsterm-test-{}", std::process::id()));
         std::fs::create_dir_all(dir.join(".aws")).unwrap();
         std::fs::write(
             dir.join(".aws/config"),

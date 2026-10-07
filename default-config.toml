@@ -1,8 +1,8 @@
-# ecs-terminal configuration.
+# ecsterm configuration.
 #
-# Location: ~/.config/ecs-terminal/config.toml  (or $XDG_CONFIG_HOME/ecs-terminal/config.toml,
-#           %APPDATA%\ecs-terminal\config.toml on Windows), or pass --config PATH.
-# Print these defaults with:  ecs-terminal --dump-config
+# Location: ~/.config/ecsterm/config.toml  (or $XDG_CONFIG_HOME/ecsterm/config.toml,
+#           %APPDATA%\ecsterm\config.toml on Windows), or pass --config PATH.
+# Print these defaults with:  ecsterm --dump-config
 #
 # Each section lists the actions shown for that tree level. A section you define
 # REPLACES the default actions for that level, so copy the ones you want to keep.

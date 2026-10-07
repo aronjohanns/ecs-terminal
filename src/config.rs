@@ -42,8 +42,8 @@ impl Config {
         toml::from_str(DEFAULT_CONFIG).expect("built-in default config is valid")
     }
 
-    /// Default location: $XDG_CONFIG_HOME/ecs-terminal/config.toml, else
-    /// ~/.config/ecs-terminal/config.toml on Unix, or the platform config dir on Windows.
+    /// Default location: $XDG_CONFIG_HOME/ecsterm/config.toml, else
+    /// ~/.config/ecsterm/config.toml on Unix, or the platform config dir on Windows.
     pub fn default_path() -> Option<PathBuf> {
         let base = if cfg!(windows) {
             dirs::config_dir()?
@@ -52,7 +52,7 @@ impl Config {
         } else {
             dirs::home_dir()?.join(".config")
         };
-        Some(base.join("ecs-terminal").join("config.toml"))
+        Some(base.join("ecsterm").join("config.toml"))
     }
 
     /// Loads the user's config layered over the defaults. A missing file at the
@@ -137,7 +137,7 @@ mod tests {
 
     #[test]
     fn user_section_replaces_defaults_only_for_that_level() {
-        let dir = std::env::temp_dir().join(format!("ecs-terminal-cfg-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("ecsterm-cfg-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let p = dir.join("config.toml");
         std::fs::write(&p, "[[task]]\ntitle = \"Mine\"\ncommand = \"echo {task}\"\n").unwrap();
