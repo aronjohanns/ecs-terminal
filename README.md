@@ -2,6 +2,8 @@
 
 Browse ECS clusters › services › containers › tasks and run the matching AWS CLI commands.
 
+![ecs-terminal](docs/screenshot.png)
+
 ```
 cargo run -- [--profile NAME] [--region REGION] [--config PATH]
 ```

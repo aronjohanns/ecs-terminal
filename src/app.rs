@@ -95,6 +95,86 @@ impl App {
         app
     }
 
+    /// Fake, pre-expanded tree for screenshots. Makes no AWS calls.
+    #[cfg(feature = "demo")]
+    pub fn demo(config: Config) -> Self {
+        use crate::aws::{Cluster, Service, Task};
+        let mut app = Self::new(config, None, None);
+        let region = "eu-west-1".to_string();
+        app.ecs = Some(Ecs { profile: "acme-prod".into(), region: region.clone() });
+        app.tree = Tree::new(region);
+        app.screen = Screen::Explorer;
+        app.status = "↑↓/jk move  Tab expand/collapse  ←→/hl switch panel  Enter run  y copy  e edit  r region  p profile  q quit".into();
+
+        let cluster = |name: &str| Cluster {
+            arn: format!("arn:aws:ecs:eu-west-1:123456789012:cluster/{name}"),
+            name: name.into(),
+        };
+        let service = |c: &Cluster, name: &str, rev: u32, exec: bool| Service {
+            arn: format!("arn:aws:ecs:eu-west-1:123456789012:service/{}/{name}", c.name),
+            name: name.into(),
+            status: "ACTIVE".into(),
+            cluster_arn: c.arn.clone(),
+            task_definition: format!("arn:aws:ecs:eu-west-1:123456789012:task-definition/{name}:{rev}"),
+            enable_execute_command: exec,
+        };
+        let task = |c: &Cluster, id: &str, status: &str, containers: &[(&str, bool)]| Task {
+            arn: format!("arn:aws:ecs:eu-west-1:123456789012:task/{}/{id}", c.name),
+            last_status: status.into(),
+            desired_status: "RUNNING".into(),
+            containers: containers.iter().map(|(n, a)| (n.to_string(), *a)).collect(),
+        };
+        let container = |c: &Cluster, s: &Service, name: &str, tasks: Vec<Task>| {
+            Node::new(Kind::Container { name: name.into(), cluster: c.clone(), service: s.clone(), tasks })
+        };
+        let node = |kind: Kind, expanded: bool, children: Vec<Node>| {
+            let mut n = Node::new(kind);
+            n.expanded = expanded;
+            n.children = Some(children);
+            n
+        };
+
+        let api = cluster("acme-prod-api");
+        let api_web = service(&api, "acme-prod-api", 42, true);
+        let api_worker = service(&api, "acme-prod-api-worker", 42, true);
+        let web_tasks = vec![
+            task(&api, "3f9c2a7e1b4d4c0e9a8b7c6d5e4f3a2b", "RUNNING", &[("api", true), ("nginx", true)]),
+            task(&api, "a1b2c3d4e5f60718293a4b5c6d7e8f90", "RUNNING", &[("api", true), ("nginx", true)]),
+            task(&api, "0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f", "PENDING", &[("api", false), ("nginx", false)]),
+        ];
+        let mut api_container = container(&api, &api_web, "api", web_tasks.clone());
+        api_container.expanded = true;
+        let api_web_node = node(
+            Kind::Service(api_web.clone()),
+            true,
+            vec![api_container, container(&api, &api_web, "nginx", web_tasks)],
+        );
+        let api_worker_node = node(Kind::Service(api_worker), false, vec![]);
+        let api_node = node(Kind::Cluster(api.clone()), true, vec![api_web_node, api_worker_node]);
+
+        let billing = cluster("acme-prod-billing");
+        let billing_svc = service(&billing, "acme-prod-billing", 17, false);
+        let billing_node = node(
+            Kind::Cluster(billing.clone()),
+            true,
+            vec![node(Kind::Service(billing_svc), false, vec![])],
+        );
+        let auth_node = node(Kind::Cluster(cluster("acme-prod-auth")), false, vec![]);
+        let staging_node = node(Kind::Cluster(cluster("acme-staging")), false, vec![]);
+
+        let ecs = app.tree.get_mut(&[0]).expect("ECS node");
+        ecs.children = Some(vec![api_node, auth_node, billing_node, staging_node]);
+        app.refresh_rows();
+        // Land on the first running task so the command panel shows the exec commands.
+        app.selected = app
+            .rows
+            .iter()
+            .position(|r| r.message.is_none() && app.tree.get(&r.path).map(|n| n.is_leaf()).unwrap_or(false))
+            .unwrap_or(0);
+        app.rebuild_commands();
+        app
+    }
+
     fn fallback_region() -> String {
         std::env::var("AWS_REGION")
             .or_else(|_| std::env::var("AWS_DEFAULT_REGION"))

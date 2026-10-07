@@ -16,6 +16,9 @@ fn main() -> Result<()> {
         return Ok(());
     }
     let cfg = config::Config::load(args.config.as_deref())?;
+    #[cfg(feature = "demo")]
+    let mut app = if args.demo { App::demo(cfg) } else { App::new(cfg, args.profile, args.region) };
+    #[cfg(not(feature = "demo"))]
     let mut app = App::new(cfg, args.profile, args.region);
 
     let mut terminal = ratatui::init();
@@ -35,6 +38,8 @@ struct Args {
     region: Option<String>,
     config: Option<std::path::PathBuf>,
     dump_config: bool,
+    #[cfg(feature = "demo")]
+    demo: bool,
 }
 
 fn parse_args() -> Args {
@@ -46,6 +51,8 @@ fn parse_args() -> Args {
             "--region" | "-r" => out.region = args.next(),
             "--config" | "-c" => out.config = args.next().map(Into::into),
             "--dump-config" => out.dump_config = true,
+            #[cfg(feature = "demo")]
+            "--demo" => out.demo = true,
             "-h" | "--help" => {
                 let path = config::Config::default_path().map(|p| p.display().to_string()).unwrap_or_default();
                 println!(
