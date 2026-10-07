@@ -94,7 +94,6 @@ pub struct Service {
 
 #[derive(Debug, Clone)]
 pub struct TaskDefinition {
-    pub task_role_arn: Option<String>,
     pub containers: Vec<String>,
 }
 
@@ -206,10 +205,7 @@ impl Ecs {
             .flatten()
             .map(|c| s(c, "name"))
             .collect();
-        Ok(TaskDefinition {
-            task_role_arn: td.get("taskRoleArn").and_then(Value::as_str).map(str::to_string),
-            containers,
-        })
+        Ok(TaskDefinition { containers })
     }
 
     pub fn list_tasks(&self, cluster: &str, service: &str) -> Result<Vec<Task>> {

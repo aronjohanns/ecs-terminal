@@ -13,7 +13,6 @@ pub enum Kind {
         name: String,
         cluster: Cluster,
         service: Service,
-        task_role_arn: Option<String>,
         /// Tasks of the parent service, RUNNING first.
         tasks: Vec<Task>,
     },
@@ -23,7 +22,6 @@ pub enum Kind {
         container: String,
         cluster: Cluster,
         service: Service,
-        task_role_arn: Option<String>,
     },
 }
 
@@ -41,7 +39,7 @@ impl Node {
     pub fn new(kind: Kind) -> Self {
         // Containers already know their tasks, so their children are built eagerly.
         let children = match &kind {
-            Kind::Container { name, cluster, service, task_role_arn, tasks } => Some(
+            Kind::Container { name, cluster, service, tasks } => Some(
                 tasks
                     .iter()
                     .map(|task| {
@@ -50,7 +48,6 @@ impl Node {
                             container: name.clone(),
                             cluster: cluster.clone(),
                             service: service.clone(),
-                            task_role_arn: task_role_arn.clone(),
                         })
                     })
                     .collect(),

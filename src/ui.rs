@@ -190,7 +190,7 @@ fn draw_commands(f: &mut Frame, app: &App, area: Rect) {
         )));
         lines.push(Line::from(Span::styled(
             format!("  {}", c.command),
-            if sel { Style::default().fg(Color::White) } else { Style::default().fg(Color::Gray) },
+            if sel { Style::default().fg(Color::Gray) } else { Style::default().fg(Color::DarkGray) },
         )));
         lines.push(Line::raw(""));
     }

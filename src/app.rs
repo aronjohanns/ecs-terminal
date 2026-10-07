@@ -316,7 +316,9 @@ impl App {
                     title: "Describe task definition".into(),
                     command: format!("aws ecs describe-task-definition --task-definition {} {pre}", s.task_definition),
                 });
-                cmds.push(toggle_exec(&cluster, s, &pre));
+                if !s.enable_execute_command {
+                    cmds.push(toggle_exec(&cluster, s, &pre));
+                }
             }
             Kind::Container { name, cluster, service, .. } => {
                 cmds.push(CliCommand {
@@ -337,7 +339,7 @@ impl App {
                     cmds.push(toggle_exec(&cluster.name, service, &pre));
                 }
             }
-            Kind::Task { task, container, cluster, service, task_role_arn } => {
+            Kind::Task { task, container, cluster, service, .. } => {
                 let exec = format!(
                     "aws ecs execute-command --cluster {} --task {} --container {container} --interactive",
                     cluster.name,
@@ -352,21 +354,8 @@ impl App {
                     title: "Describe task".into(),
                     command: format!("aws ecs describe-tasks --cluster {} --tasks {} {pre}", cluster.name, task.id()),
                 });
-                cmds.push(CliCommand {
-                    title: "Stop task".into(),
-                    command: format!("aws ecs stop-task --cluster {} --task {} {pre}", cluster.name, task.id()),
-                });
                 if !service.enable_execute_command {
                     cmds.push(toggle_exec(&cluster.name, service, &pre));
-                }
-                if let Some(role) = task_role_arn {
-                    cmds.push(CliCommand {
-                        title: "Check task role has SSM permissions (exec prerequisite)".into(),
-                        command: format!(
-                            "aws iam simulate-principal-policy --policy-source-arn {role} --action-names ssmmessages:CreateControlChannel ssmmessages:CreateDataChannel ssmmessages:OpenControlChannel ssmmessages:OpenDataChannel --profile {} --region {}",
-                            ecs.profile, ecs.region
-                        ),
-                    });
                 }
             }
         }
@@ -390,17 +379,12 @@ fn cluster_name(arn: &str) -> String {
     arn.rsplit('/').next().unwrap_or(arn).to_string()
 }
 
-/// Mirrors `Service.toggleExecuteCommand` in the reference.
+/// Enables ECS Exec on a service, as `Service.toggleExecuteCommand` does in the reference.
 fn toggle_exec(cluster: &str, s: &aws::Service, pre: &str) -> CliCommand {
-    let (title, flag) = if s.enable_execute_command {
-        ("Disable command execution (redeploys service)", "--no-enable-execute-command")
-    } else {
-        ("Enable command execution (redeploys service)", "--enable-execute-command")
-    };
     CliCommand {
-        title: title.into(),
+        title: "Enable command execution (redeploys service)".into(),
         command: format!(
-            "aws ecs update-service --cluster {cluster} --service {} {flag} --force-new-deployment {pre}",
+            "aws ecs update-service --cluster {cluster} --service {} --enable-execute-command --force-new-deployment {pre}",
             s.name
         ),
     }
@@ -426,7 +410,6 @@ fn load(ecs: &Ecs, kind: &Kind) -> Result<Vec<Node>> {
                         name,
                         cluster: cluster.clone(),
                         service: s.clone(),
-                        task_role_arn: td.task_role_arn.clone(),
                         tasks: tasks.clone(),
                     })
                 })
