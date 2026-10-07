@@ -1,4 +1,6 @@
 use crate::aws::{self, Ecs, Profile};
+use crate::config::{self, Action, Config, When};
+use std::collections::HashMap;
 use crate::tree::{Kind, Node, Row, Tree};
 use anyhow::Result;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -27,6 +29,7 @@ pub enum Screen {
 }
 
 pub struct App {
+    pub config: Config,
     pub screen: Screen,
     pub profiles: Vec<Profile>,
     pub profile_selected: usize,
@@ -55,7 +58,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(profile: Option<String>, region: Option<String>) -> Self {
+    pub fn new(config: Config, profile: Option<String>, region: Option<String>) -> Self {
         let (tx, rx) = mpsc::channel();
         let mut profiles = aws::load_profiles();
         if let Some(p) = &profile {
@@ -64,6 +67,7 @@ impl App {
             }
         }
         let mut app = App {
+            config,
             screen: Screen::Profiles,
             profiles,
             profile_selected: 0,
@@ -282,84 +286,62 @@ impl App {
         self.commands.clear();
         self.command_selected = 0;
         let Some(ecs) = self.ecs.clone() else { return };
-        let pre = ecs.prefix();
         let Some((_, node)) = self.selected_node() else { return };
-        let mut cmds = Vec::new();
-        match &node.kind {
-            Kind::Region { .. } | Kind::Ecs => {
-                cmds.push(CliCommand { title: "List clusters".into(), command: format!("aws ecs list-clusters {pre}") });
-            }
+
+        let mut vars: HashMap<&str, String> = HashMap::from([
+            ("aws", ecs.prefix()),
+            ("profile", ecs.profile.clone()),
+            ("region", ecs.region.clone()),
+        ]);
+        let mut exec_disabled = false;
+        let put_cluster = |vars: &mut HashMap<&str, String>, c: &aws::Cluster| {
+            vars.insert("cluster", c.name.clone());
+            vars.insert("cluster_arn", c.arn.clone());
+        };
+        let put_service = |vars: &mut HashMap<&str, String>, s: &aws::Service| {
+            vars.insert("service", s.name.clone());
+            vars.insert("service_arn", s.arn.clone());
+            vars.insert("task_definition", s.task_definition.clone());
+        };
+
+        let actions: &[Action] = match &node.kind {
+            Kind::Region { .. } | Kind::Ecs => self.config.ecs.as_deref().unwrap_or_default(),
             Kind::Cluster(c) => {
-                cmds.push(CliCommand {
-                    title: "List services".into(),
-                    command: format!("aws ecs list-services --cluster {} {pre}", c.name),
-                });
-                cmds.push(CliCommand {
-                    title: "Describe cluster".into(),
-                    command: format!("aws ecs describe-clusters --clusters {} {pre}", c.name),
-                });
+                put_cluster(&mut vars, c);
+                self.config.cluster.as_deref().unwrap_or_default()
             }
             Kind::Service(s) => {
-                let cluster = cluster_name(&s.cluster_arn);
-                cmds.push(CliCommand {
-                    title: "List running tasks".into(),
-                    command: format!(
-                        "aws ecs list-tasks --cluster {cluster} --service-name {} --desired-status RUNNING {pre}",
-                        s.name
-                    ),
-                });
-                cmds.push(CliCommand {
-                    title: "Describe service".into(),
-                    command: format!("aws ecs describe-services --cluster {cluster} --services {} {pre}", s.name),
-                });
-                cmds.push(CliCommand {
-                    title: "Describe task definition".into(),
-                    command: format!("aws ecs describe-task-definition --task-definition {} {pre}", s.task_definition),
-                });
-                if !s.enable_execute_command {
-                    cmds.push(toggle_exec(&cluster, s, &pre));
-                }
+                put_cluster(&mut vars, &aws::Cluster { arn: s.cluster_arn.clone(), name: cluster_name(&s.cluster_arn) });
+                put_service(&mut vars, s);
+                exec_disabled = !s.enable_execute_command;
+                self.config.service.as_deref().unwrap_or_default()
             }
             Kind::Container { name, cluster, service, .. } => {
-                cmds.push(CliCommand {
-                    title: "List running tasks".into(),
-                    command: format!(
-                        "aws ecs list-tasks --cluster {} --service-name {} --desired-status RUNNING {pre}",
-                        cluster.name, service.name
-                    ),
-                });
-                cmds.push(CliCommand {
-                    title: "Open shell in container (pick a task below for a ready-made command)".into(),
-                    command: format!(
-                        "aws ecs execute-command --cluster {} --task <TASK_ID> --container {name} --interactive --command \"/bin/sh\" {pre}",
-                        cluster.name
-                    ),
-                });
-                if !service.enable_execute_command {
-                    cmds.push(toggle_exec(&cluster.name, service, &pre));
-                }
+                put_cluster(&mut vars, cluster);
+                put_service(&mut vars, service);
+                vars.insert("container", name.clone());
+                exec_disabled = !service.enable_execute_command;
+                self.config.container.as_deref().unwrap_or_default()
             }
-            Kind::Task { task, container, cluster, service, .. } => {
-                let exec = format!(
-                    "aws ecs execute-command --cluster {} --task {} --container {container} --interactive",
-                    cluster.name,
-                    task.id()
-                );
-                cmds.push(CliCommand { title: "Open shell in container".into(), command: format!("{exec} --command \"/bin/sh\" {pre}") });
-                cmds.push(CliCommand {
-                    title: "Run a command in container".into(),
-                    command: format!("{exec} --command \"<COMMAND>\" {pre}"),
-                });
-                cmds.push(CliCommand {
-                    title: "Describe task".into(),
-                    command: format!("aws ecs describe-tasks --cluster {} --tasks {} {pre}", cluster.name, task.id()),
-                });
-                if !service.enable_execute_command {
-                    cmds.push(toggle_exec(&cluster.name, service, &pre));
-                }
+            Kind::Task { task, container, cluster, service } => {
+                put_cluster(&mut vars, cluster);
+                put_service(&mut vars, service);
+                vars.insert("container", container.clone());
+                vars.insert("task", task.id().to_string());
+                vars.insert("task_arn", task.arn.clone());
+                exec_disabled = !service.enable_execute_command;
+                self.config.task.as_deref().unwrap_or_default()
             }
-        }
-        self.commands = cmds;
+        };
+
+        self.commands = actions
+            .iter()
+            .filter(|a| match a.when {
+                Some(When::ExecDisabled) => exec_disabled,
+                None => true,
+            })
+            .map(|a| CliCommand { title: a.title.clone(), command: config::render(&a.command, &vars) })
+            .collect();
     }
 
     pub fn selected_command(&self) -> Option<&CliCommand> {
@@ -377,17 +359,6 @@ impl App {
 
 fn cluster_name(arn: &str) -> String {
     arn.rsplit('/').next().unwrap_or(arn).to_string()
-}
-
-/// Enables ECS Exec on a service, as `Service.toggleExecuteCommand` does in the reference.
-fn toggle_exec(cluster: &str, s: &aws::Service, pre: &str) -> CliCommand {
-    CliCommand {
-        title: "Enable command execution (redeploys service)".into(),
-        command: format!(
-            "aws ecs update-service --cluster {cluster} --service {} --enable-execute-command --force-new-deployment {pre}",
-            s.name
-        ),
-    }
 }
 
 fn load(ecs: &Ecs, kind: &Kind) -> Result<Vec<Node>> {

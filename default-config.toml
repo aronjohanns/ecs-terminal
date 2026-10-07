@@ -1,0 +1,76 @@
+# ecs-terminal configuration.
+#
+# Location: ~/.config/ecs-terminal/config.toml  (or $XDG_CONFIG_HOME/ecs-terminal/config.toml,
+#           %APPDATA%\ecs-terminal\config.toml on Windows), or pass --config PATH.
+# Print these defaults with:  ecs-terminal --dump-config
+#
+# Each section lists the actions shown for that tree level. A section you define
+# REPLACES the default actions for that level, so copy the ones you want to keep.
+#
+# Placeholders:
+#   {aws}              "--profile P --region R" for the current selection
+#   {profile} {region}
+#   {cluster} {cluster_arn}
+#   {service} {service_arn} {task_definition}
+#   {container}
+#   {task} {task_arn}
+#
+# Optional per action:
+#   when = "exec_disabled"   only show when ECS Exec is off for the service
+#
+# Text in <angle brackets> is a prompt: pressing Enter opens an editor to fill it in.
+
+[[ecs]]
+title = "List clusters"
+command = "aws ecs list-clusters {aws}"
+
+[[cluster]]
+title = "List services"
+command = "aws ecs list-services --cluster {cluster} {aws}"
+
+[[cluster]]
+title = "Describe cluster"
+command = "aws ecs describe-clusters --clusters {cluster} {aws}"
+
+[[service]]
+title = "List running tasks"
+command = "aws ecs list-tasks --cluster {cluster} --service-name {service} --desired-status RUNNING {aws}"
+
+[[service]]
+title = "Describe service"
+command = "aws ecs describe-services --cluster {cluster} --services {service} {aws}"
+
+[[service]]
+title = "Describe task definition"
+command = "aws ecs describe-task-definition --task-definition {task_definition} {aws}"
+
+[[service]]
+title = "Enable command execution (redeploys service)"
+command = "aws ecs update-service --cluster {cluster} --service {service} --enable-execute-command --force-new-deployment {aws}"
+when = "exec_disabled"
+
+[[container]]
+title = "List running tasks"
+command = "aws ecs list-tasks --cluster {cluster} --service-name {service} --desired-status RUNNING {aws}"
+
+[[container]]
+title = "Enable command execution (redeploys service)"
+command = "aws ecs update-service --cluster {cluster} --service {service} --enable-execute-command --force-new-deployment {aws}"
+when = "exec_disabled"
+
+[[task]]
+title = "Open shell in container"
+command = "aws ecs execute-command --cluster {cluster} --task {task} --container {container} --interactive --command \"/bin/sh\" {aws}"
+
+[[task]]
+title = "Run a command in container"
+command = "aws ecs execute-command --cluster {cluster} --task {task} --container {container} --interactive --command \"<COMMAND>\" {aws}"
+
+[[task]]
+title = "Describe task"
+command = "aws ecs describe-tasks --cluster {cluster} --tasks {task} {aws}"
+
+[[task]]
+title = "Enable command execution (redeploys service)"
+command = "aws ecs update-service --cluster {cluster} --service {service} --enable-execute-command --force-new-deployment {aws}"
+when = "exec_disabled"

@@ -1,5 +1,6 @@
 mod app;
 mod aws;
+mod config;
 mod tree;
 mod ui;
 
@@ -9,8 +10,13 @@ use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use std::time::Duration;
 
 fn main() -> Result<()> {
-    let (profile, region) = parse_args();
-    let mut app = App::new(profile, region);
+    let args = parse_args();
+    if args.dump_config {
+        print!("{}", config::DEFAULT_CONFIG);
+        return Ok(());
+    }
+    let cfg = config::Config::load(args.config.as_deref())?;
+    let mut app = App::new(cfg, args.profile, args.region);
 
     let mut terminal = ratatui::init();
     let result = run(&mut terminal, &mut app);
@@ -23,22 +29,43 @@ fn main() -> Result<()> {
     result
 }
 
-fn parse_args() -> (Option<String>, Option<String>) {
-    let mut profile = None;
-    let mut region = None;
+#[derive(Default)]
+struct Args {
+    profile: Option<String>,
+    region: Option<String>,
+    config: Option<std::path::PathBuf>,
+    dump_config: bool,
+}
+
+fn parse_args() -> Args {
+    let mut out = Args::default();
     let mut args = std::env::args().skip(1);
     while let Some(a) = args.next() {
         match a.as_str() {
-            "--profile" | "-p" => profile = args.next(),
-            "--region" | "-r" => region = args.next(),
+            "--profile" | "-p" => out.profile = args.next(),
+            "--region" | "-r" => out.region = args.next(),
+            "--config" | "-c" => out.config = args.next().map(Into::into),
+            "--dump-config" => out.dump_config = true,
             "-h" | "--help" => {
-                println!("ecs-terminal [--profile NAME] [--region REGION]\n\nBrowse ECS clusters > services > containers and get the matching AWS CLI commands.");
+                let path = config::Config::default_path().map(|p| p.display().to_string()).unwrap_or_default();
+                println!(
+                    "ecs-terminal [--profile NAME] [--region REGION] [--config PATH] [--dump-config]\n\n\
+                     Browse ECS clusters > services > containers > tasks and run the matching AWS CLI commands.\n\n\
+                     Options:\n  \
+                     -p, --profile NAME   AWS profile to open (skips the picker)\n  \
+                     -r, --region REGION  Override the profile's region\n  \
+                     -c, --config PATH    Config file (default: {path})\n      \
+                     --dump-config    Print the built-in default config as a starting point"
+                );
                 std::process::exit(0);
             }
-            _ => {}
+            other => {
+                eprintln!("unknown argument: {other} (try --help)");
+                std::process::exit(2);
+            }
         }
     }
-    (profile, region)
+    out
 }
 
 fn run(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Result<()> {
