@@ -14,6 +14,7 @@ fn main() -> Result<()> {
 
     let mut terminal = ratatui::init();
     let result = run(&mut terminal, &mut app);
+    let _ = terminal.show_cursor();
     ratatui::restore();
 
     if let Some(out) = app.output_on_exit {
@@ -43,7 +44,11 @@ fn parse_args() -> (Option<String>, Option<String>) {
 fn run(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Result<()> {
     loop {
         if let Some(cmd) = app.pending_run.take() {
+            // Hand the terminal back in a sane state: cursor visible, cooked
+            // mode, main screen. `restore()` alone leaves the cursor hidden.
+            terminal.show_cursor()?;
             ratatui::restore();
+            crossterm::execute!(std::io::stdout(), crossterm::cursor::Show)?;
             let status = run_in_terminal(&cmd);
             *terminal = ratatui::init();
             terminal.clear()?;
