@@ -8,11 +8,31 @@ Requires the [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getti
 
 ## Install
 
+### macOS
+
+```
+brew install aronjohanns/tap/ecsterm
+```
+
+### Linux / macOS
+
 ```
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/aronjohanns/ecsterm/releases/latest/download/ecsterm-installer.sh | sh
 ```
 
-Or `cargo install ecsterm`. Binaries for macOS, Linux and Windows are on the [releases page](https://github.com/aronjohanns/ecsterm/releases).
+### Windows
+
+```
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/aronjohanns/ecsterm/releases/latest/download/ecsterm-installer.ps1 | iex"
+```
+
+### Cargo
+
+```
+cargo install ecsterm
+```
+
+Binaries are on the [releases page](https://github.com/aronjohanns/ecsterm/releases).
 
 ```
 ecsterm [--profile NAME] [--region REGION] [--config PATH]
