@@ -1,6 +1,6 @@
 [package]
 name = "ecsterm"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "TUI to browse ECS clusters, services, containers and tasks and run the matching AWS CLI commands"
 license = "MIT"
