@@ -1,6 +1,6 @@
 # ecsterm
 
-Browse ECS clusters › services › containers › tasks and run the matching AWS CLI commands.
+Browse ECS clusters › services › containers › tasks and run the matching AWS CLI commands. Inspired by the ECS explorer in the [AWS Toolkit for VS Code](https://github.com/aws/aws-toolkit-vscode).
 
 ![ecsterm](docs/screenshot.png)
 
