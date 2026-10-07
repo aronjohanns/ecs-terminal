@@ -46,14 +46,25 @@ Linux/macOS: `~/.config/ecsterm/config.toml` (or `$XDG_CONFIG_HOME`). Windows: `
 mkdir -p ~/.config/ecsterm && ecsterm --dump-config > ~/.config/ecsterm/config.toml
 ```
 
-Actions per level: `[[ecs]]` `[[cluster]]` `[[service]]` `[[container]]` `[[task]]`. A level you define replaces its defaults.
+All actions and placeholders are in [default-config.toml](default-config.toml). Defining a level, e.g. `[[task]]`, replaces its defaults.
 
-Placeholders: `{aws}` `{profile}` `{region}` `{cluster}` `{cluster_arn}` `{service}` `{service_arn}` `{task_definition}` `{container}` `{task}` `{task_arn}`. `<TEXT>` prompts before running. `when = "exec_disabled"` hides an action unless ECS Exec is off.
-
-Example, a shell with completion (bash + TERM, falls back to sh):
+Example: swap `/bin/sh` for bash with completion and TERM set, keep the other task actions.
 
 ```toml
 [[task]]
 title = "Open shell in container"
 command = "aws ecs execute-command --cluster {cluster} --task {task} --container {container} --interactive --command \"/bin/sh -c 'export TERM=xterm-256color; exec /bin/bash -l || exec /bin/sh'\" {aws}"
+
+[[task]]
+title = "Run a command in container"
+command = "aws ecs execute-command --cluster {cluster} --task {task} --container {container} --interactive --command \"<COMMAND>\" {aws}"
+
+[[task]]
+title = "Describe task"
+command = "aws ecs describe-tasks --cluster {cluster} --tasks {task} {aws}"
+
+[[task]]
+title = "Enable command execution (redeploys service)"
+command = "aws ecs update-service --cluster {cluster} --service {service} --enable-execute-command --force-new-deployment {aws}"
+when = "exec_disabled"
 ```
