@@ -1,0 +1,14 @@
+# Rust build output
+/target/
+**/*.rs.bk
+*.pdb
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Env files
+.env
+.env.*
